@@ -1,0 +1,296 @@
+# mount drive for accessing the local files
+
+from google.colab import drive
+import os
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+drive.mount('/content/gdrive')
+
+# Set Data Storage Path
+
+base_path = "/content/gdrive/My Drive/AIfans/"
+previous_file = os.path.join(base_path, "cleaned_amazon_data_final.csv")
+
+# Load Previously Cleaned Data
+
+import pandas as pd
+
+# Read data using the updated fixed file path
+df = pd.read_csv('/content/gdrive/My Drive/AIfans/cleaned_amazon_data_final.csv')
+
+# Output the read file name
+print("Loaded previous cleaned data from: /content/gdrive/My Drive/AIfans/cleaned_amazon_data_final.csv")
+
+# Display the first five lines of data and confirm if the data is correct
+print(df.head())
+
+
+print("Missing values before processing:")
+print(df.isnull().sum())
+
+# Data Preprocessing (Handling Missing Values & Outliers)
+
+# Print column names
+print("Columns in the DataFrame:", df.columns)
+
+
+print(df.columns)
+
+
+# 1. Check and delete columns' New 'and' PendingS' if they exist
+if 'New' in df.columns:
+    df.drop(columns=['New'], inplace=True)
+    print("Dropped 'New' column.")
+if 'PendingS' in df.columns:
+    df.drop(columns=['PendingS'], inplace=True)
+    print("Dropped 'PendingS' column.")
+
+# 2.  Process columns' Discounted Price 'and' Actual Price '
+# Remove currency symbol and convert to numerical type
+df['discounted_price'] = df['discounted_price'].replace({'₹': '', ',': ''}, regex=True).astype(float)
+df['actual_price'] = df['actual_price'].replace({'₹': '', ',': ''}, regex=True).astype(float)
+
+# 3. Ensure that the 'rating' column is numeric and convert non numeric values to NaN
+df['rating'] = pd.to_numeric(df['rating'], errors='coerce')
+
+# 4. Clean up the 'rating_comunt' column
+# Remove unnecessary symbols (such as commas) and convert them to numeric values
+df['rating_count'] = df['rating_count'].replace({',': '', '₹': ''}, regex=True)
+df['rating_count'] = pd.to_numeric(df['rating_count'], errors='coerce')
+
+# 5. Check if there are any outliers in the Sales, Quantity, and Profit columns
+# Check for negative or unreasonable values
+print("Checking for negative or unreasonable values in 'Sales', 'Quantity', and 'Profit' columns...")
+df = df[(df['Sales'] >= 0) & (df['Quantity'] >= 0) & (df['Profit'] >= 0)]
+
+# 6. Fill in other missing values and use the mean to fill in the numerical column
+df['discounted_price'] = df['discounted_price'].fillna(df['discounted_price'].mean())
+df['actual_price'] = df['actual_price'].fillna(df['actual_price'].mean())
+df['rating'] = df['rating'].fillna(df['rating'].mean())
+df['rating_count'] = df['rating_count'].fillna(df['rating_count'].mean())
+
+# Fill in missing values with correct column names' Sales' and 'Quantity'
+df['Sales'] = df['Sales'].fillna(df['Sales'].mean())
+df['Quantity'] = df['Quantity'].fillna(df['Quantity'].mean())
+df['Profit'] = df['Profit'].fillna(df['Profit'].mean())
+
+# Check the cleaned data
+print("Data after cleaning:")
+print(df.isnull().sum())  # Check the missing values of each column
+print(df.head())  # Check the first few lines of data to confirm the processing effect
+
+
+# User Segmentation Analysis (K-Means Clustering)
+
+# Import required libraries
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# 1. Select feature columns (remove Sales and Quantity)
+features = ['discounted_price', 'actual_price', 'rating', 'rating_count', 'Profit']
+
+# 2. Extract data and apply standardization
+df_cluster = df[features].dropna()  # Remove missing values
+scaler = StandardScaler()  # Initialize the scaler
+df_scaled = scaler.fit_transform(df_cluster)  # Standardize the data
+
+# 3. Find the optimal number of clusters (Elbow Method)
+inertia = []  # Store inertia values for different numbers of clusters
+for i in range(1, 11):  # Test number of clusters from 1 to 10
+    kmeans = KMeans(n_clusters=i, random_state=42, n_init=10)
+    kmeans.fit(df_scaled)
+    inertia.append(kmeans.inertia_)
+
+# Visualize the Elbow Method result
+plt.figure(figsize=(8, 6))
+plt.plot(range(1, 11), inertia, marker='o', linestyle='--')
+plt.title('Elbow Method for Optimal K')
+plt.xlabel('Number of Clusters (K)')
+plt.ylabel('Inertia')
+plt.xticks(range(1, 11))
+plt.grid(True)
+plt.show()
+
+# Choose the optimal number of clusters based on the Elbow plot (e.g., 3 or 4)
+optimal_k = 3  # You can adjust this value
+kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+kmeans.fit(df_scaled)
+
+# 4. Add clustering results to the original DataFrame
+df['Cluster'] = kmeans.labels_
+
+# 5. Visualize clustering result (choose two features for plotting)
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x=df['rating'], y=df['Profit'], hue=df['Cluster'], palette='Set1', s=100, alpha=0.7, edgecolor='black')
+plt.title('K-Means Clustering (Rating vs Profit)')
+plt.xlabel('Product Rating')
+plt.ylabel('Profit')
+plt.legend(title='Cluster')
+plt.grid(True)
+plt.show()
+
+# 6. Display cluster centers (scaled)
+print("Cluster Centers (scaled):")
+print(kmeans.cluster_centers_)
+
+# Inverse transform: convert cluster centers back to original scale
+df_cluster_centers = scaler.inverse_transform(kmeans.cluster_centers_)
+print("\nCluster Centers (original scale):")
+print(df_cluster_centers)
+
+# 7. View basic information of each cluster
+cluster_summary = df.groupby('Cluster')[features].mean()
+print("\nCluster Summary (average values for each cluster):")
+print(cluster_summary)
+
+
+# Product Preference Analysis
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+# 1. Analyze average rating per product
+product_avg_rating = df.groupby('product_name')['rating'].mean().reset_index()  # Calculate average rating for each product
+product_avg_rating = product_avg_rating.sort_values(by='rating', ascending=False)  # Sort by average rating (descending)
+
+# Visualize average rating per product
+plt.figure(figsize=(12, 8))
+sns.barplot(x='rating', y='product_name', data=product_avg_rating.head(20), palette='coolwarm')  # Show top 20 products
+plt.title('Top 20 Products by Average Rating')
+plt.xlabel('Average Rating')
+plt.ylabel('Product Name')
+plt.show()
+
+# 2. Analyze price volatility per product
+product_price_std = df.groupby('product_name')['actual_price'].std().reset_index()  # Calculate standard deviation of price for each product
+product_price_std = product_price_std.sort_values(by='actual_price', ascending=False)  # Sort by price volatility (descending)
+
+# Visualize price volatility
+plt.figure(figsize=(12, 8))
+sns.barplot(x='actual_price', y='product_name', data=product_price_std.head(20), palette='magma')  # Show top 20 products
+plt.title('Top 20 Products by Price Volatility')
+plt.xlabel('Price Volatility (Standard Deviation)')
+plt.ylabel('Product Name')
+plt.show()
+
+# 3. Analyze unique user purchase count per product (how many different users purchased each product)
+product_unique_user_count = df.groupby('product_name')['user_id'].nunique().reset_index()  # Count unique users per product
+product_unique_user_count = product_unique_user_count.sort_values(by='user_id', ascending=False)  # Sort by unique user count (descending)
+
+# Visualize user purchase count per product
+plt.figure(figsize=(12, 8))
+sns.barplot(x='user_id', y='product_name', data=product_unique_user_count.head(20), palette='inferno')  # Show top 20 products
+plt.title('Top 20 Products by Unique User Purchase Count')
+plt.xlabel('Unique User Count')
+plt.ylabel('Product Name')
+plt.show()
+
+# 4. Analyze minimum price per product
+product_min_price = df.groupby('product_name')['actual_price'].min().reset_index()  # Calculate minimum price for each product
+product_min_price = product_min_price.sort_values(by='actual_price', ascending=False)  # Sort by minimum price (descending)
+
+# Visualize minimum price per product
+plt.figure(figsize=(12, 8))
+sns.barplot(x='actual_price', y='product_name', data=product_min_price.head(20), palette='viridis')  # Show top 20 products
+plt.title('Top 20 Products by Minimum Price')
+plt.xlabel('Minimum Price')
+plt.ylabel('Product Name')
+plt.show()
+
+
+# Baseline Recommendation Model (Collaborative Filtering)
+
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Mount Google Drive
+from google.colab import drive
+drive.mount('/content/gdrive')
+
+# Load the dataset
+df_ratings = pd.read_csv('/content/gdrive/My Drive/AIfans/cleaned_amazon_data_final.csv')
+
+# Data preprocessing: standardize product names by removing spaces and converting to lowercase
+df_ratings['product_name'] = df_ratings['product_name'].str.strip().str.lower()
+
+# Handle duplicates: aggregate Quantity for each user-product pair (you can use other aggregation like mean if needed)
+df_ratings = df_ratings.groupby(['user_id', 'product_name'], as_index=False)['Quantity'].sum()
+
+# Create user-product matrix and fill missing values with 0
+user_product_matrix = df_ratings.pivot(index='user_id', columns='product_name', values='Quantity').fillna(0)
+
+# Compute cosine similarity between products
+cosine_sim = cosine_similarity(user_product_matrix.T)  # Transpose matrix to compute product-product similarity
+cosine_sim_df = pd.DataFrame(cosine_sim, index=user_product_matrix.columns, columns=user_product_matrix.columns)
+
+# View the product similarity matrix
+print(cosine_sim_df.head())
+
+# Recommendation system: recommend top similar products for a given product
+def recommend_products(product_name, cosine_sim_df, top_n=5):
+    # Ensure consistent format for the input product name
+    product_name = product_name.strip().lower()
+
+    if product_name not in cosine_sim_df.columns:
+        return f"Product '{product_name}' not found in the similarity matrix."
+
+    sim_scores = cosine_sim_df[product_name].sort_values(ascending=False)
+    similar_products = sim_scores.drop(product_name).head(top_n)  # Drop itself and return top n similar products
+    return similar_products
+
+# Example: recommend products similar to 'staples'
+recommended_products = recommend_products('staples', cosine_sim_df)
+print(f"Recommended products for 'staples':")
+print(recommended_products)
+
+
+# Model Optimization (Hyperparameter Tuning)
+
+from sklearn.cluster import MiniBatchKMeans  # Use MiniBatchKMeans to speed up computation
+from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
+
+# Assume we use 'discounted_price', 'actual_price', and 'rating' as feature columns
+X = df[['discounted_price', 'actual_price', 'rating']]
+
+# Standardize the data
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Use a subset of the data to speed up testing, randomly select 10% of the data
+X_sampled = X.sample(frac=0.1, random_state=42)  # Use 10% of the data for testing
+X_scaled_sampled = scaler.fit_transform(X_sampled)  # Standardize the sampled subset
+
+# Choose the best value of k
+best_k = 0
+best_score = -1
+for k in range(2, 11):  # Try different values of k
+    minibatch_kmeans = MiniBatchKMeans(n_clusters=k, random_state=42)  # Use MiniBatchKMeans
+    minibatch_kmeans.fit(X_scaled_sampled)  # Fit the standardized data
+    score = silhouette_score(X_scaled_sampled, minibatch_kmeans.labels_)  # Calculate silhouette score
+
+    if score > best_score:
+        best_score = score
+        best_k = k
+
+print(f"Best number of clusters: {best_k} with silhouette score: {best_score}")
+
+
+# Save final data & results
+
+# Define save path
+save_path = '/content/gdrive/My Drive/AIfans/'
+
+# Save the cleaned data to a CSV file
+df.to_csv(f'{save_path}cleaned_amazon_data_final_v2.csv', index=False)
+print(f"Cleaned data saved to '{save_path}cleaned_amazon_data_final_v2.csv'")
