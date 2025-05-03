@@ -8,9 +8,9 @@ task = Task.init(project_name='POC-ClearML', task_name='Step 1 - Load Data', tas
 
 # Parameters (can be changed from UI or pipeline)
 params = task.connect({
-    'zip_path': '/content/gdrive/My Drive/AIfans/cleaned_amazon_data_final.zip',
+    'zip_path': '/content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip',
     'csv_inside_zip': 'cleaned_amazon_data_final.csv',
-    'extract_dir': '/content/extracted_data/'
+    'extract_dir': '/content/e-shopping-recommendation/extracted_data/'
 })
 
 # Ensure extraction directory exists
