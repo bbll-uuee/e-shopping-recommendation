@@ -7,7 +7,7 @@ task = Task.init(project_name='POC-ClearML', task_name='Step 2 - Data Preprocess
 
 # Define parameters
 args = {
-    'dataset_task_id': '3765d06737ac4834ae0192e42feead69',  # Will be populated in pipeline
+    'dataset_task_id': '',  # Will be populated in pipeline
     'test_size': 0.2,
     'random_state': 42
 }
