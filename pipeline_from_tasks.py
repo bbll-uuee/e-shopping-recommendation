@@ -1,43 +1,66 @@
-from clearml import PipelineDecorator, Task
+from clearml import Task
+from clearml.automation import PipelineController
 
-@PipelineDecorator.pipeline(
-    name='POC Amazon Data Clustering Pipeline',
-    project='POC-ClearML',
-    version='1.0',
-    default_execution_queue='pipline'  # ✅ make sure this matches your clearml-agent queue
-)
+
+def pre_execute_callback_example(a_pipeline, a_node, current_param_override):
+    # type (PipelineController, PipelineController.Node, dict) -> bool
+    print(
+        "Cloning Task id={} with parameters: {}".format(
+            a_node.base_task_id, current_param_override
+        )
+    )
+    # if we want to skip this node (and subtree of this node) we return False
+    # return True to continue DAG execution
+    return True
+
+
+def post_execute_callback_example(a_pipeline, a_node):
+    # type (PipelineController, PipelineController.Node) -> None
+    print("Completed Task id={}".format(a_node.executed))
+    # if we need the actual executed Task: Task.get_task(task_id=a_node.executed)
+    return
+
+
 def run_pipeline():
-    # Step 1: Load and upload raw CSV data
-    step1 = PipelineDecorator.task(
-        name='Step 1 - Load Data',
-        project='POC-ClearML',
-        task_name='Step 1 - Load Data',
-        script='step1_dataset_artifact.py',
-        task_type=Task.TaskTypes.data_processing,
-        queue='pipline'
+    # Connecting ClearML with the current pipeline,
+    # from here on everything is logged automatically
+    pipe = PipelineController(
+        name="Pipeline demo", project="examples", version="0.0.1", add_pipeline_tags=False
     )
 
-    # Step 2: Preprocess Data
-    step2 = PipelineDecorator.task(
-        name='Step 2 - Preprocessing',
-        project='POC-ClearML',
-        task_name='Step 2 - Data Preprocessing',
-        script='step2_data_preprocessing.py',
-        task_type=Task.TaskTypes.data_processing,
-        parent=step1,
-        queue='pipline'
+
+    pipe.set_default_execution_queue("pipeline")
+
+    pipe.add_step(
+        name="stage_data",
+        base_task_project="examples",
+        base_task_name="Pipeline step 1 dataset artifact",
     )
 
-    # Step 3: Train Clustering Model
-    step3 = PipelineDecorator.task(
-        name='Step 3 - Train Clustering Model',
-        project='POC-ClearML',
-        task_name='Step 3 - Train Clustering Model',
-        script='step3_train_model.py',
-        task_type=Task.TaskTypes.training,
-        parent=step2,
-        queue='pipline'
+    pipe.add_step(
+        name="stage_process",
+        parents=["stage_data"],
+        base_task_name="Pipeline step 2 process dataset",
+        base_task_project="examples",
+        parameter_override={
+            "General/dataset_task_id": "${stage_data.id}",
+            "General/test_size": 0.25,
+            "General/random_state": 42
+        },
     )
 
-if __name__ == '__main__':
-    run_pipeline()
+    pipe.add_step(
+        name="stage_train",
+        parents=["stage_process"],
+        base_task_project="examples",
+        base_task_name="Pipeline step 3 train model",
+        parameter_override={"General/dataset_task_id": "${stage_process.id}"},
+    )
+
+    # for debugging purposes use local jobs
+    pipe.start_locally()
+
+    # Starting the pipeline (in the background)
+    # pipe.start(queue="pipeline")  # already set pipeline queue
+
+    print("done")
