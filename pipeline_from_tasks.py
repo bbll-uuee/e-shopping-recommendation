@@ -1,13 +1,13 @@
 from clearml import PipelineDecorator, Task
 
 @PipelineDecorator.pipeline(
-    name='POC Manual Artifact Pipeline',
+    name='POC Amazon Data Clustering Pipeline',
     project='POC-ClearML',
     version='1.0',
-    default_execution_queue='pipline'  # match your agent queue name
+    default_execution_queue='pipline'  # ✅ make sure this matches your clearml-agent queue
 )
 def run_pipeline():
-    # Step 1: Run data loading task
+    # Step 1: Load and upload raw CSV data
     step1 = PipelineDecorator.task(
         name='Step 1 - Load Data',
         project='POC-ClearML',
@@ -17,23 +17,25 @@ def run_pipeline():
         queue='pipline'
     )
 
-    # Step 2: Preprocessing (uses manually set Step 1 task ID)
+    # Step 2: Preprocess Data
     step2 = PipelineDecorator.task(
-        name='Step 2 - Data Preprocessing',
+        name='Step 2 - Preprocessing',
         project='POC-ClearML',
         task_name='Step 2 - Data Preprocessing',
         script='step2_data_preprocessing.py',
         task_type=Task.TaskTypes.data_processing,
+        parent=step1,
         queue='pipline'
     )
 
-    # Step 3: Clustering (uses manually set Step 2 task ID)
+    # Step 3: Train Clustering Model
     step3 = PipelineDecorator.task(
-        name='Step 3 - Clustering Model',
+        name='Step 3 - Train Clustering Model',
         project='POC-ClearML',
         task_name='Step 3 - Train Clustering Model',
         script='step3_train_model.py',
         task_type=Task.TaskTypes.training,
+        parent=step2,
         queue='pipline'
     )
 
