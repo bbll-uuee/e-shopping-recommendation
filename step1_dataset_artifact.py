@@ -1,32 +1,35 @@
 from clearml import Task
 import pandas as pd
-import zipfile
 import os
+import zipfile
 
 # Initialize ClearML Task
-task = Task.init(project_name='POC-ClearML', task_name='Step 1 - Load Data', task_type=Task.TaskTypes.data_processing)
+task = Task.init(project_name='POC-ClearML', task_name='Step 1 - Load Data')
 
-# Parameters (can be changed from UI or pipeline)
-params = task.connect({
-    'zip_path': '/content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip',
-    'csv_inside_zip': 'cleaned_amazon_data_final.csv',
-    'extract_dir': '/content/e-shopping-recommendation/extracted_data/'
-})
+# Define parameters (can be overridden in the ClearML UI)
+params = {
+    'zip_path': './content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip',           # Path to the .zip file
+    'extract_dir': './content/e-shopping-recommendation/extracted_data',                       # Directory to extract contents
+    'csv_inside_zip': 'cleaned_amazon_data_final.csv'        # CSV file name inside the ZIP
+}
+task.connect(params)
 
 # Ensure extraction directory exists
 os.makedirs(params['extract_dir'], exist_ok=True)
 
-# Unzip the file
+# Unzip the data file
 with zipfile.ZipFile(params['zip_path'], 'r') as zip_ref:
     zip_ref.extractall(params['extract_dir'])
 
-# Read extracted CSV file
+# Construct full CSV file path
 csv_path = os.path.join(params['extract_dir'], params['csv_inside_zip'])
-df = pd.read_csv(csv_path)
 
-# Preview loaded data
-print("Loaded data from extracted CSV:")
+# Load CSV into DataFrame
+df = pd.read_csv(csv_path)
+print("✅ Data loaded successfully. Preview:")
 print(df.head())
 
-# Upload entire DataFrame as artifact
+# Upload the DataFrame as an artifact for downstream tasks
 task.upload_artifact(name='raw_data', artifact_object=df)
+
+print("✅ Data uploaded to ClearML as artifact: 'raw_data'")
