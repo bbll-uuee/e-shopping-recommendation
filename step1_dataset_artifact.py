@@ -2,27 +2,27 @@
 
 from clearml import Task, Dataset
 
-# ✅ Init Task
+# ✅ Init ClearML Task
 task = Task.init(
     project_name='POC-ClearML',
     task_name='Step 1 - Upload Dataset',
     reuse_last_task_id=False
 )
 
-# ✅ Upload Dataset to ClearML Dataset (for version control)
+# ✅ Dataset version control (for ClearML Datasets tab)
+zip_file_path = '/content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip'
 dataset = Dataset.create(
     dataset_name='Amazon Dataset - Final ZIP',
     dataset_project='POC-ClearML'
 )
-dataset.add_files(path='/content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip')  # ZIP file path
+dataset.add_files(path=zip_file_path)
 dataset.upload()
 dataset.finalize()
 
-# ✅ Also upload ZIP as artifact for downstream use
-zip_path = 'cleaned_amazon_data_final.zip'
-task.upload_artifact(name='raw_dataset_zip', artifact_object=zip_path)
+# ✅ Also upload the same file as a Task Artifact
+task.upload_artifact(name='raw_dataset_zip', artifact_object=zip_file_path)
 
-# ✅ Print both IDs
+# ✅ Print for reference
 print(f"✅ Dataset uploaded to ClearML Dataset with ID: {dataset.id}")
-print(f"✅ ZIP also uploaded as task artifact: 'raw_dataset_zip'")
-print(f"📌 Step 1 Task ID (for linking): {task.id}")
+print(f"✅ ZIP also uploaded as artifact: 'raw_dataset_zip'")
+print(f"📌 Step 1 Task ID (for Step 2 linking): {task.id}")
