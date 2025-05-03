@@ -3,33 +3,36 @@ import pandas as pd
 import os
 import zipfile
 
-# Initialize ClearML Task
+# 初始化ClearML任务
 task = Task.init(project_name='POC-ClearML', task_name='Step 1 - Load Data')
 
-# Define parameters (can be overridden in the ClearML UI)
+# 定义参数(可在ClearML UI中覆盖)
 params = {
-    'zip_path': '/content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip',           # Path to the .zip file
-    'extract_dir': '/content/e-shopping-recommendation/extracted_data',                       # Directory to extract contents
-    'csv_inside_zip': 'cleaned_amazon_data_final.csv'        # CSV file name inside the ZIP
+    'zip_path': 'cleaned_amazon_data_final.csv.zip',  # ZIP文件路径
+    'extract_dir': './extracted_data',                # 解压目录
+    'csv_inside_zip': 'cleaned_amazon_data_final.csv' # ZIP内CSV文件名
 }
 task.connect(params)
 
-# Ensure extraction directory exists
+# 用于远程执行 - 这行是关键
+task.execute_remotely()
+
+# 确保解压目录存在
 os.makedirs(params['extract_dir'], exist_ok=True)
 
-# Unzip the data file
+# 解压数据文件
 with zipfile.ZipFile(params['zip_path'], 'r') as zip_ref:
     zip_ref.extractall(params['extract_dir'])
 
-# Construct full CSV file path
+# 构建完整CSV文件路径
 csv_path = os.path.join(params['extract_dir'], params['csv_inside_zip'])
 
-# Load CSV into DataFrame
+# 将CSV加载到DataFrame
 df = pd.read_csv(csv_path)
-print("✅ Data loaded successfully. Preview:")
+print("✅ 数据加载成功。预览:")
 print(df.head())
 
-# Upload the DataFrame as an artifact for downstream tasks
+# 将DataFrame上传为下游任务的工件
 task.upload_artifact(name='raw_data', artifact_object=df)
 
-print("✅ Data uploaded to ClearML as artifact: 'raw_data'")
+print("✅ 数据已上传为'raw_data'工件")
