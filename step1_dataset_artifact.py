@@ -1,5 +1,3 @@
-# /content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip
-
 from clearml import Task
 import pandas as pd
 import os
