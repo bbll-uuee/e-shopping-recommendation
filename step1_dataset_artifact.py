@@ -1,19 +1,16 @@
-from clearml import Task, StorageManager
+from clearml import Task
+import pandas as pd
 
-# create an dataset experiment
-task = Task.init(project_name="examples", task_name="Pipeline step 1 dataset artifact")
+# Initialize ClearML Task
+task = Task.init(project_name='POC-ClearML', task_name='Step 1 - Load Data', task_type=Task.TaskTypes.data_processing)
 
-# only create the task, we will actually execute it later
-task.execute_remotely()
+# Read data
+file_path = '/content/gdrive/My Drive/AIfans/cleaned_amazon_data_final.csv'
+df = pd.read_csv(file_path)
 
-# simulate local dataset, download one, so we have something local
-local_iris_pkl = StorageManager.get_local_copy(
-    remote_url='https://github.com/allegroai/events/raw/master/odsc20-east/generic/iris_dataset.pkl')
+# Preview sample
+print("Loaded data:")
+print(df.head())
 
-# add and upload local file containing our toy dataset
-task.upload_artifact('dataset', artifact_object=local_iris_pkl)
-
-print('uploading artifacts in the background')
-
-# we are done
-print('Done')
+# Upload raw DataFrame as artifact
+task.upload_artifact(name='raw_data', artifact_object=df)
