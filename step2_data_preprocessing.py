@@ -1,56 +1,30 @@
-import pickle
-from clearml import Task, StorageManager
-from sklearn.model_selection import train_test_split
+from clearml import Task
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 
+# Initialize ClearML Task
+task = Task.init(project_name='POC-ClearML', task_name='Step 2 - Data Preprocessing', task_type=Task.TaskTypes.data_processing)
 
-# Connecting ClearML with the current process,
-# from here on everything is logged automatically
-task = Task.init(project_name="examples", task_name="Pipeline step 2 process dataset")
+# Retrieve artifact from previous step
+raw_data = task.artifacts['raw_data'].get()
+df = pd.read_csv(raw_data)
 
-# program arguments
-# Use either dataset_task_id to point to a tasks artifact or
-# use a direct url with dataset_url
-args = {
-    'dataset_task_id': '42ec02924ee141a2bc5b788c34e4e34d',
-    'dataset_url': '',
-    'random_state': 42,
-    'test_size': 0.2,
-}
+# Fill missing values
+df.fillna(0, inplace=True)
 
-# store arguments, later we will be able to change them from outside the code
-task.connect(args)
-print('Arguments: {}'.format(args))
+# Label encoding for categorical columns
+label_encoders = {}
+for col in df.select_dtypes(include='object').columns:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col].astype(str))
+    label_encoders[col] = le.classes_
 
-# only create the task, we will actually execute it later
-task.execute_remotely()
+# Standardize numeric features
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(df)
 
-# get dataset from task's artifact
-if args['dataset_task_id']:
-    dataset_upload_task = Task.get_task(task_id=args['dataset_task_id'])
-    print('Input task id={} artifacts {}'.format(args['dataset_task_id'], list(dataset_upload_task.artifacts.keys())))
-    # download the artifact
-    iris_pickle = dataset_upload_task.artifacts['dataset'].get_local_copy()
-# # get the dataset from a direct url
-# elif args['dataset_url']:
-#     iris_pickle = StorageManager.get_local_copy(remote_url=args['dataset_url'])
-else:
-    raise ValueError("Missing dataset link")
+# Convert to DataFrame
+df_scaled = pd.DataFrame(scaled_data, columns=df.columns)
 
-# open the local copy
-iris = pickle.load(open(iris_pickle, 'rb'))
-
-# "process" data
-X = iris.data
-y = iris.target
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=args['test_size'], random_state=args['random_state'])
-
-# upload processed data
-print('Uploading process dataset')
-task.upload_artifact('X_train', X_train)
-task.upload_artifact('X_test', X_test)
-task.upload_artifact('y_train', y_train)
-task.upload_artifact('y_test', y_test)
-
-print('Notice, artifacts are uploaded in the background')
-print('Done')
+# Upload processed data
+task.upload_artifact(name='processed_data', artifact_object=df_scaled)
