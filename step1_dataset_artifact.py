@@ -1,28 +1,37 @@
 # /content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip
 
-from clearml import Task, Dataset
+from clearml import Task
+import pandas as pd
+import os
+import zipfile
 
-# ✅ Init ClearML Task
-task = Task.init(
-    project_name='POC-ClearML',
-    task_name='Step 1 - Upload Dataset',
-    reuse_last_task_id=False
-)
+# Initialize ClearML Task
+task = Task.init(project_name='POC-ClearML', task_name='Step 1 - Load Data')
 
-# ✅ Dataset version control (for ClearML Datasets tab)
-zip_file_path = '/content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip'
-dataset = Dataset.create(
-    dataset_name='Amazon Dataset - Final ZIP',
-    dataset_project='POC-ClearML'
-)
-dataset.add_files(path=zip_file_path)
-dataset.upload()
-dataset.finalize()
+# Define parameters (can be overridden in the ClearML UI)
+params = {
+    'zip_path': '/content/e-shopping-recommendation/cleaned_amazon_data_final.csv.zip',           # Path to the .zip file
+    'extract_dir': '/content/e-shopping-recommendation/extracted_data',                       # Directory to extract contents
+    'csv_inside_zip': 'cleaned_amazon_data_final.csv'        # CSV file name inside the ZIP
+}
+task.connect(params)
 
-# ✅ Also upload the same file as a Task Artifact
-task.upload_artifact(name='raw_dataset_zip', artifact_object=zip_file_path)
+# Ensure extraction directory exists
+os.makedirs(params['extract_dir'], exist_ok=True)
 
-# ✅ Print for reference
-print(f"✅ Dataset uploaded to ClearML Dataset with ID: {dataset.id}")
-print(f"✅ ZIP also uploaded as artifact: 'raw_dataset_zip'")
-print(f"📌 Step 1 Task ID (for Step 2 linking): {task.id}")
+# Unzip the data file
+with zipfile.ZipFile(params['zip_path'], 'r') as zip_ref:
+    zip_ref.extractall(params['extract_dir'])
+
+# Construct full CSV file path
+csv_path = os.path.join(params['extract_dir'], params['csv_inside_zip'])
+
+# Load CSV into DataFrame
+df = pd.read_csv(csv_path)
+print("✅ Data loaded successfully. Preview:")
+print(df.head())
+
+# Upload the DataFrame as an artifact for downstream tasks
+task.upload_artifact(name='raw_data', artifact_object=df)
+
+print("✅ Data uploaded to ClearML as artifact: 'raw_data'")
