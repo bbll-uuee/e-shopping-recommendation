@@ -1,7 +1,16 @@
-clearml==1.18.0
-matplotlib==3.7.1
-numpy==1.25.0
-pandas==1.5.3
-scikit_learn==1.4.2
-torch==2.3.1
-optuna==4.3.0
+tensorflow==2.13.0
+clearml==1.14.3
+matplotlib
+pandas
+scikit-learn
+optuna
+
+#If the manual version is run, you'll need to comment out the top part and uncomment the already-commented part below.
+#clearml==1.18.0
+#matplotlib==3.7.1
+#numpy==1.25.0
+#pandas==1.5.3
+#scikit_learn==1.4.2
+#torch==2.3.1
+#optuna==4.3.0
+#tensorflow==2.13.0
