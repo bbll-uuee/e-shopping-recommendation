@@ -1,43 +1,45 @@
 from clearml import Task
-from clearml.automation.optuna import OptimizerOptuna
+from clearml.automation import UniformParameterRange, DiscreteParameterRange, HyperParameterOptimizer
 
-# ✅  "Pipeline step 3 train model" Task ID
-BASE_TRAIN_TASK_ID = "replace_with_your_training_task_id"
-
-optimizer = OptimizerOptuna(
-    base_task_id=BASE_TRAIN_TASK_ID,
-    hyper_parameters=[
-        {
-            "name": "learning_rate",
-            "type": "float",
-            "min": 0.0001,
-            "max": 0.01,
-            "log": True
-        },
-        {
-            "name": "weight_decay",
-            "type": "float",
-            "min": 1e-6,
-            "max": 1e-3,
-            "log": True
-        },
-        {
-            "name": "batch_size",
-            "type": "int",
-            "min": 16,
-            "max": 64,
-            "step": 16
-        }
-    ],
-    objective_metric='validation_accuracy',   #
-    objective_metric_goal='maximize',
-    num_concurrent_workers=2,
-    max_iteration_per_job=1,
-    total_max_jobs=10,
-    project_name="AI_Studio_Demo",
-    task_name="HPO: Train Model"
+# Initialize the ClearML HPO task
+task = Task.init(
+    project_name="MyProject-HPO",
+    task_name="Optuna-HPO",
+    task_type=Task.TaskTypes.optimizer,
+    reuse_last_task_id=False,
 )
 
-optimizer.set_time_limit(in_minutes=60)
+# This is the base task to clone for each HPO trial (must support arguments like --learning_rate etc.)
+base_task_id = 'INSERT_YOUR_BASE_TRAIN_TASK_ID_HERE'
 
+# Define the hyperparameter search space
+param_ranges = {
+    'Args/learning_rate': UniformParameterRange(1e-5, 1e-2),
+    'Args/batch_size': DiscreteParameterRange([16, 32, 64]),
+    'Args/num_epochs': DiscreteParameterRange([5, 10, 20]),
+}
+
+# Create the HPO optimizer
+optimizer = HyperParameterOptimizer(
+    base_task_id=base_task_id,  # the experiment to use as base
+    hyper_parameters=param_ranges,
+    objective_metric_title='validation',
+    objective_metric_series='accuracy',
+    objective_metric_sign='max',  # maximize accuracy
+    max_number_of_concurrent_tasks=2,
+    optimizer_class='BayesianOptimization',
+    execution_queue='default',
+    max_iteration=20,  # total number of HPO trials
+)
+
+# Start the optimization
 optimizer.start()
+
+# Print the best result
+top_exp = optimizer.get_best_top_experiments(top_k=1)[0]
+print("Best configuration:")
+print(top_exp.hyper_parameters)
+print("Best score:", top_exp.metrics['validation']['accuracy'])
+
+# Optionally stop the task
+task.close()
