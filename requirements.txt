@@ -1,8 +1,8 @@
-clearml==1.18.0
+clearml==1.10.4
 matplotlib==3.7.1
-numpy==1.25.0
+numpy==1.24.3
 pandas==1.5.3
 scikit_learn==1.4.2
-torch==2.3.1
+torch==2.1.2          
 optuna==4.3.0
 tensorflow==2.13.0
