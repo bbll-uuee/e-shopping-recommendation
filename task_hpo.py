@@ -1,45 +1,50 @@
 from clearml import Task
-from clearml.automation import UniformParameterRange, DiscreteParameterRange, HyperParameterOptimizer
+from clearml.automation import HyperParameterOptimizer
+from clearml.automation import UniformIntegerParameterRange, DiscreteParameterRange
+import logging
 
-# Initialize the ClearML HPO task
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize HPO Task
 task = Task.init(
-    project_name="MyProject-HPO",
-    task_name="Optuna-HPO",
-    task_type=Task.TaskTypes.optimizer,
-    reuse_last_task_id=False,
+    project_name='ecommerce_recommendation',
+    task_name='HPO: Cluster & Recommend',
+    task_type=Task.TaskTypes.optimizer
 )
 
-# This is the base task to clone for each HPO trial (must support arguments like --learning_rate etc.)
-base_task_id = 'INSERT_YOUR_BASE_TRAIN_TASK_ID_HERE'
+# Recommended: use an existing queue name
+# Change 'pipeline' to your actual ClearML agent queue name
+task.execute_remotely(queue_name='pipeline')
 
-# Define the hyperparameter search space
-param_ranges = {
-    'Args/learning_rate': UniformParameterRange(1e-5, 1e-2),
-    'Args/batch_size': DiscreteParameterRange([16, 32, 64]),
-    'Args/num_epochs': DiscreteParameterRange([5, 10, 20]),
-}
-
-# Create the HPO optimizer
+# Define optimizer
 optimizer = HyperParameterOptimizer(
-    base_task_id=base_task_id,  # the experiment to use as base
-    hyper_parameters=param_ranges,
-    objective_metric_title='validation',
-    objective_metric_series='accuracy',
-    objective_metric_sign='max',  # maximize accuracy
-    max_number_of_concurrent_tasks=2,
-    optimizer_class='BayesianOptimization',
-    execution_queue='default',
-    max_iteration=20,  # total number of HPO trials
+    base_task_id='',  
+    hyper_parameters=[
+        UniformIntegerParameterRange('General/n_clusters', 3, 10),
+        UniformIntegerParameterRange('General/max_iter', 100, 500),
+        DiscreteParameterRange('General/similarity_metric', ['cosine', 'euclidean']),
+        UniformIntegerParameterRange('General/min_interactions', 1, 10),
+    ],
+    objective_metric_title='Clustering/Silhouette Score',
+    objective_metric_series='Clustering/Silhouette Score',
+    objective_metric_sign='max',
+    max_number_of_concurrent_tasks=1,
+    total_max_jobs=10,
+    compute_time_limit=60 * 10,  # 10 minutes per trial
+    min_iteration_per_job=1,
+    max_iteration_per_job=1,
 )
 
-# Start the optimization
+optimizer.set_time_limit(in_minutes=60)
 optimizer.start()
+optimizer.wait()
 
-# Print the best result
-top_exp = optimizer.get_best_top_experiments(top_k=1)[0]
-print("Best configuration:")
-print(top_exp.hyper_parameters)
-print("Best score:", top_exp.metrics['validation']['accuracy'])
-
-# Optionally stop the task
-task.close()
+# Use get_parameters instead of hyperparameters
+top_exp = optimizer.get_top_experiments(top_k=1)
+if top_exp:
+    best_params = top_exp[0].get_parameters()
+    logger.info(f"Best configuration: {best_params}")
+else:
+    logger.warning("No successful experiments found.")
