@@ -27,7 +27,7 @@ def preprocess_data():
     
     # Get parameters from task (can be overridden from pipeline)
     args = {
-        'dataset_task_id': '0fad9317e21c488da29a288ad50ec2fa',  # Will be overridden by pipeline
+        'dataset_task_id': '',  # Will be overridden by pipeline
         'test_size': 0.25,
         'random_state': 42,
         'remove_outliers': True,
