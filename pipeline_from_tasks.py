@@ -1,66 +1,71 @@
-from clearml import Task
-from clearml.automation import PipelineController
-
-
-def pre_execute_callback_example(a_pipeline, a_node, current_param_override):
-    # type (PipelineController, PipelineController.Node, dict) -> bool
-    print(
-        "Cloning Task id={} with parameters: {}".format(
-            a_node.base_task_id, current_param_override
-        )
-    )
-    # if we want to skip this node (and subtree of this node) we return False
-    # return True to continue DAG execution
-    return True
-
-
-def post_execute_callback_example(a_pipeline, a_node):
-    # type (PipelineController, PipelineController.Node) -> None
-    print("Completed Task id={}".format(a_node.executed))
-    # if we need the actual executed Task: Task.get_task(task_id=a_node.executed)
-    return
-
+from clearml import PipelineController
 
 def run_pipeline():
-    # Connecting ClearML with the current pipeline,
-    # from here on everything is logged automatically
     pipe = PipelineController(
-        name="Pipeline demo", project="examples", version="0.0.1", add_pipeline_tags=False
+        name="Ecommerce Recommendation Pipeline",
+        project="ecommerce_recommendation",
+        version="1.0.0",
+        add_pipeline_tags=True
     )
 
-
+    # Default execution queue
     pipe.set_default_execution_queue("pipeline")
 
+    # Step 1: Create dataset
     pipe.add_step(
-        name="stage_data",
+        name="step1_create_dataset",
         base_task_project="examples",
         base_task_name="Pipeline step 1 dataset artifact",
+        parameter_override={}
     )
 
+    # Step 2: Data preprocessing
     pipe.add_step(
-        name="stage_process",
-        parents=["stage_data"],
-        base_task_name="Pipeline step 2 process dataset",
+        name="step2_preprocess",
         base_task_project="examples",
+        base_task_name="Pipeline step 2 process dataset",
+        parents=["step1_create_dataset"],
         parameter_override={
-            "General/dataset_task_id": "${stage_data.id}",
-            "General/test_size": 0.25,
-            "General/random_state": 42
-        },
+            "General/dataset_task_id": "${step1_create_dataset.id}"
+        }
     )
 
+    # Step 3: Initial model training
     pipe.add_step(
-        name="stage_train",
-        parents=["stage_process"],
+        name="step3_initial_train",
         base_task_project="examples",
         base_task_name="Pipeline step 3 train model",
-        parameter_override={"General/dataset_task_id": "${stage_process.id}"},
+        parents=["step2_preprocess"],
+        parameter_override={
+            "General/processed_dataset_id": "${step2_preprocess.parameters.General/processed_dataset_id}"
+        }
     )
 
-    # for debugging purposes use local jobs
-    pipe.start_locally()
+    # Step 4: Hyperparameter optimization (HPO)
+    pipe.add_step(
+        name="step4_hpo",
+        base_task_project="ecommerce_recommendation",
+        base_task_name="HPO: Cluster & Recommend",
+        parents=["step3_initial_train"],
+        parameter_override={
+            "General/processed_dataset_id": "${step2_preprocess.parameters.General/processed_dataset_id}"
+        }
+    )
 
-    # Starting the pipeline (in the background)
-    # pipe.start(queue="pipeline")  # already set pipeline queue
+    # Step 5: Final model training (using best parameters)
+    pipe.add_step(
+        name="step5_final_model",
+        base_task_project="ecommerce_recommendation",
+        base_task_name="Final Model Training",
+        parents=["step4_hpo"],
+        parameter_override={
+            "General/processed_dataset_id": "${step2_preprocess.parameters.General/processed_dataset_id}",
+            "General/hpo_task_id": "${step4_hpo.id}"
+        }
+    )
 
-    print("done")
+    # Start the pipeline
+    pipe.start(queue="pipeline")
+
+if __name__ == "__main__":
+    run_pipeline()
